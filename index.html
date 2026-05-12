@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Palette Overlay - Pro Tool</title>
+    
+    <!-- PWA Metadata -->
+    <meta name="theme-color" content="#ffffff">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="description" content="Professional color extraction tool for photos and videos.">
+    
+    <!-- Inline Manifest using Data URI -->
+    <link rel="manifest" href="data:application/json;base64,ewogICJuYW1lIjogIlBhbGV0dGUgT3ZlcmxheSIsCiAgInNob3J0X25hbWUiOiAiUGFsZXR0ZSIsCiAgImRlc2NyaXB0aW9uIjogIlJlYWwtdGltZSBjb2xvciBleHRyYWN0aW9uIHRvb2wuIiwKICAic3RhcnRfdXJsIjogIi4iLAogICJkaXNwbGF5IjogInN0YW5kYWxvbmUiLAogICJiYWNrZ3JvdW5kX2NvbG9yIjogIiNmZmZmZmYiLAogICJ0aGVtZV9jb2xvciI6ICIjZmZmZmZmIiwKICAiaWNvbnMiOiBbCiAgICB7CiAgICAgICJzcmMiOiAiaHR0cHM6Ly9jZG40Lmljb25maW5kZXIuY29tL2RhdGEvaWNvbnMvbG9nb3MtYnJhbmRzLTUvNTEyL2ZyZWVwaWstNTEyLnBuZyIsCiAgICAgICJzaXplcyI6ICI1MTJ4NTEyIiwKICAgICAgInR5cGUiOiAiaW1hZ2UvcG5nIiwKICAgICAgInB1cnBvc2UiOiAiYW55IG1hc2thYmxlIgogICAgfQogIF0KfQ==">
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap');
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #ffffff;
+            color: #18181b;
+            overscroll-behavior-y: contain;
+        }
+
+        .canvas-container {
+            transition: transform 0.3s ease;
+        }
+
+        #dropZone {
+            border: 1px solid #e4e4e7;
+            transition: all 0.2s ease;
+        }
+
+        #dropZone:hover {
+            border-color: #18181b;
+            background-color: #fafafa;
+        }
+
+        .spinner {
+            border: 2px solid #f4f4f5;
+            border-top: 2px solid #18181b;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        #installBtn { display: none; }
+        
+        /* Export Modal Styles */
+        #exportModal {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(255, 255, 255, 0.95);
+            z-index: 100;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            backdrop-filter: blur(8px);
+        }
+
+        .progress-bar-bg {
+            width: 200px;
+            height: 2px;
+            background: #f4f4f5;
+            margin-top: 1.5rem;
+            position: relative;
+            overflow: hidden;
+        }
+
+        #progress-bar-fill {
+            position: absolute;
+            top: 0;
+            left: 0;
+            height: 100%;
+            width: 0%;
+            background: #18181b;
+            transition: width 0.1s linear;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col items-center py-12 px-6">
+
+    <!-- Exporting Progress Modal -->
+    <div id="exportModal">
+        <p class="text-[10px] tracking-[0.3em] font-bold uppercase text-zinc-900">Exporting Content</p>
+        <p id="progressPercent" class="text-[8px] tracking-widest uppercase text-zinc-400 mt-2">0%</p>
+        <div class="progress-bar-bg">
+            <div id="progress-bar-fill"></div>
+        </div>
+        <p class="text-[8px] tracking-widest uppercase text-zinc-400 mt-8">Please keep this window active</p>
+    </div>
+
+    <div class="max-w-4xl w-full space-y-10">
+        <!-- Header -->
+        <div class="flex justify-between items-end border-b border-zinc-100 pb-6">
+            <div class="space-y-1">
+                <h1 class="text-2xl font-semibold tracking-tight text-zinc-900 uppercase">Palette Overlay</h1>
+                <!-- <p class="text-zinc-400 text-xs tracking-widest uppercase">Video Processing Tool</p> -->
+            </div>
+            <button id="installBtn" class="bg-zinc-900 text-white px-4 py-2 text-[10px] tracking-widest font-bold uppercase transition-all hover:bg-zinc-800">
+                Install
+            </button>
+        </div>
+
+        <!-- Upload Area -->
+        <div id="dropZone" class="relative group cursor-pointer aspect-video flex flex-col items-center justify-center space-y-4">
+            <input type="file" id="fileInput" class="hidden" accept="image/*,video/*">
+            <div class="flex flex-col items-center justify-center space-y-3">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-zinc-300 group-hover:text-zinc-900 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M12 4v16m8-8H4" />
+                </svg>
+                <div class="text-center">
+                    <p class="text-xs tracking-widest font-medium text-zinc-400 uppercase group-hover:text-zinc-900 transition-colors">Import Media</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Preview Area -->
+        <div id="previewSection" class="hidden flex flex-col items-center space-y-8 w-full">
+            <div class="canvas-container bg-white border border-zinc-100 p-0 overflow-hidden max-w-full relative shadow-sm">
+                <canvas id="mainCanvas" class="max-w-full h-auto"></canvas>
+                <div id="videoIndicator" class="absolute top-4 left-4 bg-zinc-900 text-white text-[8px] tracking-widest font-bold px-2 py-1 uppercase hidden">Live</div>
+            </div>
+
+            <!-- Controls -->
+            <div class="flex flex-wrap justify-center gap-4 w-full">
+                <button id="resetBtn" class="px-6 py-3 border border-zinc-200 text-zinc-500 hover:border-zinc-900 hover:text-zinc-900 transition-all text-[10px] tracking-widest uppercase font-bold">
+                    Reset
+                </button>
+                <button id="playPauseBtn" class="hidden px-6 py-3 border border-zinc-200 text-zinc-900 hover:border-zinc-900 transition-all text-[10px] tracking-widest uppercase font-bold">
+                    <span id="playPauseText">Pause</span>
+                </button>
+                <button id="exportBtn" class="px-10 py-3 bg-zinc-900 text-white hover:bg-zinc-800 transition-all text-[10px] tracking-widest uppercase font-bold">
+                    Export <span id="exportType">Media</span>
+                </button>
+            </div>
+            
+            <p id="exportHint" class="text-[9px] text-zinc-400 tracking-widest uppercase hidden text-center">Video exports are generated in real-time to ensure color accuracy.</p>
+        </div>
+
+        <!-- Loading State -->
+        <div id="loadingOverlay" class="hidden flex flex-col items-center space-y-4 py-12">
+            <div class="spinner"></div>
+            <p class="text-zinc-400 text-[10px] tracking-widest uppercase">Initializing</p>
+        </div>
+
+        <div id="messageBox" class="fixed bottom-12 left-1/2 -translate-x-1/2 bg-zinc-900 text-white px-6 py-3 shadow-xl transition-all opacity-0 translate-y-4 pointer-events-none z-50">
+            <span id="messageContent" class="text-[10px] tracking-widest uppercase font-bold"></span>
+        </div>
+    </div>
+
+    <video id="hiddenVideo" class="hidden" muted playsinline></video>
+
+    <script>
+        // --- PWA Registration ---
+        if ('serviceWorker' in navigator) {
+            const swCode = `
+                const CACHE_NAME = 'palette-overlay-v4';
+                const ASSETS = ['./', 'index.html', 'https://cdn.tailwindcss.com'];
+                self.addEventListener('install', (e) => e.waitUntil(caches.open(CACHE_NAME).then((c) => c.addAll(ASSETS))));
+                self.addEventListener('fetch', (e) => e.respondWith(caches.match(event.request).then((r) => r || fetch(event.request))));
+            `;
+            const blob = new Blob([swCode], { type: 'application/javascript' });
+            window.addEventListener('load', () => navigator.serviceWorker.register(URL.createObjectURL(blob)).catch(() => {}));
+        }
+
+        // --- Main App Logic ---
+        const dropZone = document.getElementById('dropZone');
+        const fileInput = document.getElementById('fileInput');
+        const previewSection = document.getElementById('previewSection');
+        const loadingOverlay = document.getElementById('loadingOverlay');
+        const canvas = document.getElementById('mainCanvas');
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
+        const video = document.getElementById('hiddenVideo');
+        const exportBtn = document.getElementById('exportBtn');
+        const exportType = document.getElementById('exportType');
+        const exportHint = document.getElementById('exportHint');
+        const resetBtn = document.getElementById('resetBtn');
+        const playPauseBtn = document.getElementById('playPauseBtn');
+        const playPauseText = document.getElementById('playPauseText');
+        const videoIndicator = document.getElementById('videoIndicator');
+        
+        const exportModal = document.getElementById('exportModal');
+        const progressBarFill = document.getElementById('progress-bar-fill');
+        const progressPercent = document.getElementById('progressPercent');
+        
+        const messageBox = document.getElementById('messageBox');
+        const messageContent = document.getElementById('messageContent');
+
+        let isVideo = false;
+        let animationFrameId = null;
+        let mediaRecorder = null;
+        let recordedChunks = [];
+        let isRecording = false;
+
+        dropZone.addEventListener('click', () => fileInput.click());
+        dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.style.borderColor = '#18181b'; });
+        dropZone.addEventListener('dragleave', () => dropZone.style.borderColor = '#e4e4e7');
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            const file = e.dataTransfer.files[0];
+            if (file) processFile(file);
+        });
+        fileInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) processFile(file);
+        });
+
+        resetBtn.addEventListener('click', () => {
+            if(isRecording) stopRecording();
+            stopLoop();
+            video.pause();
+            video.src = "";
+            previewSection.classList.add('hidden');
+            dropZone.classList.remove('hidden');
+            playPauseBtn.classList.add('hidden');
+            videoIndicator.classList.add('hidden');
+            exportHint.classList.add('hidden');
+            fileInput.value = '';
+        });
+
+        video.addEventListener('play', () => {
+            playPauseText.innerText = "Pause";
+            startLoop();
+        });
+
+        video.addEventListener('pause', () => {
+            playPauseText.innerText = "Play";
+        });
+
+        video.addEventListener('ended', () => {
+            playPauseText.innerText = "Play";
+            if(isRecording) stopRecording();
+        });
+
+        playPauseBtn.addEventListener('click', () => {
+            if (video.paused || video.ended) {
+                video.play();
+            } else {
+                video.pause();
+            }
+        });
+
+        exportBtn.addEventListener('click', () => {
+            if (isVideo) {
+                startVideoRecording();
+            } else {
+                exportFrame();
+            }
+        });
+
+        function exportFrame() {
+            const link = document.createElement('a');
+            link.download = `palette-export-${Date.now()}.png`;
+            link.href = canvas.toDataURL('image/png');
+            link.click();
+            showMessage('Frame Exported');
+        }
+
+        async function startVideoRecording() {
+            if (isRecording) return;
+            
+            isRecording = true;
+            recordedChunks = [];
+            
+            // Show Export Modal
+            exportModal.style.display = 'flex';
+            progressBarFill.style.width = '0%';
+            progressPercent.innerText = '0%';
+            
+            // Reset video to start
+            video.currentTime = 0;
+            video.pause();
+
+            // Prepare MediaRecorder (prefer vp9 for quality, fallback to vp8)
+            let options = { mimeType: 'video/webm;codecs=vp9' };
+            if (!MediaRecorder.isTypeSupported(options.mimeType)) {
+                options = { mimeType: 'video/webm' };
+            }
+
+            const stream = canvas.captureStream(30);
+            mediaRecorder = new MediaRecorder(stream, options);
+
+            mediaRecorder.ondataavailable = (e) => {
+                if (e.data.size > 0) recordedChunks.push(e.data);
+            };
+
+            mediaRecorder.onstop = () => {
+                const blob = new Blob(recordedChunks, { type: options.mimeType });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `palette-video-${Date.now()}.webm`;
+                a.click();
+                
+                isRecording = false;
+                exportModal.style.display = 'none';
+                showMessage('Video Exported');
+            };
+
+            mediaRecorder.start();
+            video.play();
+        }
+
+        function stopRecording() {
+            if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+                mediaRecorder.stop();
+            }
+        }
+
+        function processFile(file) {
+            dropZone.classList.add('hidden');
+            loadingOverlay.classList.remove('hidden');
+            isVideo = file.type.startsWith('video/');
+            const url = URL.createObjectURL(file);
+
+            if (isVideo) {
+                exportType.innerText = "Video";
+                exportHint.classList.remove('hidden');
+                video.src = url;
+                video.onloadedmetadata = () => {
+                    setupCanvas(video.videoWidth, video.videoHeight);
+                    playPauseBtn.classList.remove('hidden');
+                    videoIndicator.classList.remove('hidden');
+                    video.play();
+                };
+            } else {
+                exportType.innerText = "Frame";
+                exportHint.classList.add('hidden');
+                const img = new Image();
+                img.onload = () => {
+                    setupCanvas(img.width, img.height);
+                    renderFrame(img);
+                };
+                img.src = url;
+            }
+        }
+
+        function setupCanvas(w, h) {
+            const maxWidth = 1080;
+            const scale = Math.min(1, maxWidth / w);
+            canvas.width = w * scale;
+            canvas.height = h * scale;
+            loadingOverlay.classList.add('hidden');
+            previewSection.classList.remove('hidden');
+        }
+
+        function startLoop() {
+            if (!isVideo) return;
+            if (animationFrameId) cancelAnimationFrame(animationFrameId);
+            const loop = () => {
+                if (!video.paused && !video.ended) {
+                    renderFrame(video);
+                    
+                    // Update progress if recording
+                    if (isRecording) {
+                        const prog = (video.currentTime / video.duration) * 100;
+                        progressBarFill.style.width = `${prog}%`;
+                        progressPercent.innerText = `${Math.floor(prog)}%`;
+                    }
+                }
+                animationFrameId = requestAnimationFrame(loop);
+            };
+            animationFrameId = requestAnimationFrame(loop);
+        }
+
+        function stopLoop() {
+            if (animationFrameId) cancelAnimationFrame(animationFrameId);
+        }
+
+        function renderFrame(source) {
+            ctx.drawImage(source, 0, 0, canvas.width, canvas.height);
+            const palette = extractUniqueColors(ctx, canvas.width, canvas.height, 5);
+            drawPaletteStrips(palette);
+        }
+
+        function extractUniqueColors(context, width, height, count) {
+            const imageData = context.getImageData(0, 0, width, height).data;
+            const pixels = [];
+            const step = isVideo ? 120 : 60; 
+            for (let i = 0; i < imageData.length; i += 4 * step) {
+                pixels.push({ r: imageData[i], g: imageData[i+1], b: imageData[i+2] });
+            }
+            const palette = [];
+            const minDiff = 55; 
+            for (let i = 0; i < pixels.length && palette.length < count; i++) {
+                const p = pixels[i];
+                const isDistinct = palette.every(c => Math.sqrt((c.r-p.r)**2 + (c.g-p.g)**2 + (c.b-p.b)**2) > minDiff);
+                if (isDistinct) palette.push(p);
+            }
+            while (palette.length < count) palette.push(pixels[Math.floor(Math.random() * pixels.length)] || {r:0,g:0,b:0});
+            return palette;
+        }
+
+        function drawPaletteStrips(palette) {
+            const num = palette.length;
+            const maxStackHeight = canvas.height * 0.65;
+            const divisor = (2 * num - 1);
+            const stripH = maxStackHeight / divisor; 
+            const stripW = canvas.width * 0.3;               
+            const gap = stripH;                               
+            const totalH = (num * stripH) + ((num - 1) * gap);
+            let y = (canvas.height - totalH) / 2;
+            const x = (canvas.width - stripW) / 2;
+
+            palette.forEach((color, i) => {
+                const curY = y + (i * (stripH + gap));
+                ctx.fillStyle = `rgb(${color.r}, ${color.g}, ${color.b})`;
+                ctx.fillRect(x, curY, stripW, stripH);
+            });
+        }
+
+        function showMessage(text) {
+            messageContent.innerText = text;
+            messageBox.classList.remove('opacity-0', 'translate-y-4');
+            messageBox.classList.add('opacity-100', 'translate-y-0');
+            setTimeout(() => {
+                messageBox.classList.add('opacity-0', 'translate-y-4');
+                messageBox.classList.remove('opacity-100', 'translate-y-0');
+            }, 2500);
+        }
+    </script>
+</body>
+</html>
